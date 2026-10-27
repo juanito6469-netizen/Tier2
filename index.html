@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mantenimiento Zona Fría</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#EEF2F3;color:#1F2D3D}
+header{background:#1F96A0;color:#fff;padding:12px 20px;font-size:18px;font-weight:600}
+.wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:16px;padding:16px;max-width:1500px;margin:auto}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:10px;padding:16px;border:1px solid #DDE3E6}
+.lbl{font-size:13px;color:#5F6B76;margin:14px 0 6px;font-weight:600}
+.btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+button{flex:1;min-width:120px;height:40px;border-radius:8px;border:1px solid #1F96A0;background:#fff;color:#1F96A0;font-size:14px;font-weight:600;cursor:pointer}
+button.pri{background:#1F96A0;color:#fff}
+button:hover{opacity:.85}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-size:13px;color:#5F6B76;padding:4px}
+td{padding:2px}
+td input{width:100%;height:34px;text-align:center;font-size:15px;border:1px solid #CBD3D8;border-radius:6px}
+td input.hi{border-color:#C00000;color:#C00000;background:#FDF0F0;font-weight:600}
+textarea{width:100%;min-height:54px;font-size:14px;font-family:inherit;border:1px solid #CBD3D8;border-radius:6px;padding:8px;resize:vertical}
+.row{display:flex;gap:8px}
+.row input[type=text]{flex:1;height:36px;border:1px solid #CBD3D8;border-radius:6px;padding:0 10px}
+#msg{font-size:13px;color:#5F6B76;min-height:18px;margin:8px 0 0}
+#slide svg{width:100%;display:block;border:1px solid #DDE3E6;border-radius:6px}
+</style>
+</head>
+<body>
+<header>Editor diario · Mantenimiento Zona Fría</header>
+<div class="wrap">
+  <div class="card">
+    <div id="slide"></div>
+    <div class="btns">
+      <button class="pri" id="cp">Copiar imagen</button>
+      <button id="dl">Descargar PNG</button>
+      <button id="clr">Limpiar minutos</button>
+    </div>
+    <p id="msg"></p>
+  </div>
+  <div class="card">
+    <div class="lbl">Minutos de paro (últimos 6 días)</div>
+    <table><thead><tr id="hd"></tr></thead><tbody id="bd"></tbody></table>
+    <div class="lbl">Seguridad</div><textarea id="t0">No colocar guardas después de intervención a equipos</textarea>
+    <div class="lbl">Calidad</div><textarea id="t1">Ajuste de rociador 42 principal</textarea>
+    <div class="lbl">Productividad</div><textarea id="t2">Cambio presentación empacadora 12-2
+Ajuste de paletizadora OCME P115</textarea>
+    <div class="lbl">Color corporativo</div>
+    <div class="row"><input type="color" id="col" value="#1F96A0"><input type="text" id="hex" value="#1F96A0"></div>
+  </div>
+</div>
+<script>
+window.onerror=function(m,u,l){var e=document.getElementById('msg');if(e)e.textContent='Error: '+m+' (línea '+l+')';};
+const L=['31','32','33','41','42','43'];
+let S={};L.forEach(l=>S[l]={});
+let TEAL='#1F96A0';
+const $=id=>document.getElementById(id);
+const key=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=new Date();const days=[];for(let i=6;i>=1;i--){const d=new Date(today);d.setDate(d.getDate()-i);days.push(d)}
+const K=days.map(key);
+try{const s=JSON.parse(localStorage.getItem('zonaFriaHist'));if(s&&typeof s==='object'){
+ if(s.S&&typeof s.S==='object')L.forEach(l=>{const o=s.S[l];if(o&&typeof o==='object'&&!Array.isArray(o))Object.keys(o).forEach(k=>{const v=Number(o[k]);if(/^\d{4}-\d{2}-\d{2}$/.test(k)&&isFinite(v)&&o[k]!==null&&o[k]!=='')S[l][k]=Math.round(v)})});
+ if(typeof s.c==='string'&&/^#[0-9a-fA-F]{6}$/.test(s.c))TEAL=s.c.toUpperCase();
+ if(Array.isArray(s.t))['t0','t1','t2'].forEach((k,i)=>{if(typeof s.t[i]==='string')$(k).value=s.t[i]})}}catch(e){}
+$('col').value=TEAL;$('hex').value=TEAL;
+const NEW='background:#E3F4F5;';
+$('hd').innerHTML='<th style="width:52px">Línea</th>'+days.map((d,i)=>'<th style="'+(i===5?NEW+'color:#1F96A0;border-radius:6px 6px 0 0;':'')+'">'+d.getDate()+'</th>').join('');
+$('bd').innerHTML=L.map(l=>'<tr><th>'+l+'</th>'+K.map((k,i)=>'<td style="'+(i===5?NEW:'')+'"><input type="number" min="0" data-l="'+l+'" data-i="'+i+'" value="'+(S[l][k]??'')+'"></td>').join('')+'</tr>').join('');
+$('bd').addEventListener('input',e=>{const t=e.target;const k=K[+t.dataset.i];if(t.value==='')delete S[t.dataset.l][k];else S[t.dataset.l][k]=Math.round(+t.value);draw()});
+['t0','t1','t2'].forEach(k=>$(k).addEventListener('input',draw));
+$('col').addEventListener('input',e=>{TEAL=e.target.value.toUpperCase();$('hex').value=TEAL;draw()});
+$('hex').addEventListener('input',e=>{let v=e.target.value.trim();if(v[0]!=='#')v='#'+v;if(/^#[0-9a-fA-F]{6}$/.test(v)){TEAL=v.toUpperCase();$('col').value=TEAL;draw()}});
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function wrap(txt,n){const out=[];txt.split('\n').forEach(p=>{let ln='';p.split(' ').forEach(w=>{if((ln+' '+w).trim().length>n){if(ln)out.push(ln);ln=w}else ln=(ln+' '+w).trim()});if(ln)out.push(ln)});return out}
+const LOGOS='<g transform="translate(16,8) scale(0.205)" fill="#FFFFFF"><path fill-rule="evenodd" d="M100 0a100 100 0 1 0 0.01 0zM100 70a30 30 0 1 1-0.01 0z"/><rect x="190" y="86" width="50" height="30"/><rect x="236" y="4" width="60" height="194"/></g><g transform="translate(898,5) scale(0.178)"><defs><clipPath id="gc"><circle cx="155" cy="152" r="96"/></clipPath>  <mask id="gm"><rect x="-20" y="-20" width="320" height="300" fill="#fff"/><path d="M10 156 C14 84 60 40 120 30 L114 0 L194 36 L126 90 L124 62 C82 66 42 98 10 156 Z" fill="#000" stroke="#000" stroke-width="22" stroke-linejoin="round"/></mask></defs>  <g mask="url(#gm)"><circle cx="155" cy="152" r="96" fill="none" stroke="#FFF" stroke-width="22"/>   <g clip-path="url(#gc)" stroke="#FFF" stroke-width="13" fill="none"><line x1="155" y1="40" x2="155" y2="260"/><ellipse cx="155" cy="152" rx="48" ry="104"/>    <line x1="40" y1="116" x2="270" y2="116"/><line x1="40" y1="160" x2="270" y2="160"/><line x1="40" y1="204" x2="270" y2="204"/></g></g>  <path d="M10 156 C14 84 60 40 120 30 L114 0 L194 36 L126 90 L124 62 C82 66 42 98 10 156 Z" fill="#FFF" stroke="#FFF" stroke-width="3" stroke-linejoin="round"/></g>';
+const RED='#C00000',GRN='#00A651',META='#3FA9D6',F='Arial, Helvetica, sans-serif';
+function chart(l,x,y,w,h){const v=K.map(k=>S[l][k]??null);const mx=Math.max(90,Math.ceil(Math.max(...v.map(a=>a||0))/10)*10+10);
+const px=x+30,py=y+30,pw=w-42,ph=h-56;let s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="#FFFFFF" stroke="#D9D9D9" rx="4"/><rect x="'+x+'" y="'+y+'" width="4" height="'+h+'" fill="'+TEAL+'"/>';
+s+='<text x="'+(x+w/2)+'" y="'+(y+20)+'" text-anchor="middle" font-family="'+F+'" font-size="13" font-weight="bold" fill="#1F2D3D">Línea '+l+'</text>';
+for(let g=0;g<=mx;g+=30){const gy=py+ph-g/mx*ph;s+='<line x1="'+px+'" x2="'+(px+pw)+'" y1="'+gy+'" y2="'+gy+'" stroke="#EEEEEE"/><text x="'+(px-5)+'" y="'+(gy+3)+'" text-anchor="end" font-family="'+F+'" font-size="9" fill="#7F7F7F">'+g+'</text>'}
+const bw=pw/6;v.forEach((a,i)=>{const cx=px+bw*i+bw/2;if(a!=null){const bh=a/mx*ph;s+='<rect x="'+(cx-bw*0.3)+'" y="'+(py+ph-bh)+'" width="'+(bw*0.6)+'" height="'+bh+'" fill="'+(a>60?RED:GRN)+'"/><text x="'+cx+'" y="'+(py+ph-bh-4)+'" text-anchor="middle" font-family="'+F+'" font-size="10" font-weight="bold" fill="'+(a>60?RED:'#3A3A3A')+'">'+a+'</text>'}
+s+='<text x="'+cx+'" y="'+(py+ph+13)+'" text-anchor="middle" font-family="'+F+'" font-size="10" fill="#595959">'+days[i].getDate()+'</text>'});
+const my=py+ph-60/mx*ph;s+='<line x1="'+px+'" x2="'+(px+pw)+'" y1="'+my+'" y2="'+my+'" stroke="'+META+'" stroke-width="1.5" stroke-dasharray="6 4"/><line x1="'+px+'" x2="'+(px+pw)+'" y1="'+(py+ph)+'" y2="'+(py+ph)+'" stroke="#A6A6A6"/>';return s}
+const ICONS={
+SEGURIDAD:'<path d="M-4.5 -12h9v7.5h7.5v9h-7.5v7.5h-9v-7.5h-7.5v-9h7.5z" fill="none" stroke="#F39A3D" stroke-width="2.2" stroke-linejoin="round"/><path d="M-6 9 C-7 1 -1 -4 9 -4 C10 5 3 10 -6 9z" fill="#8DC63F"/><path d="M-6 9 C-2 4 2 1 7 -2" stroke="#FFFFFF" stroke-width="1.2" fill="none"/><path d="M-9 8 C-12 3 -10 -1 -5 -2 C-3 2 -5 6 -9 8z" fill="#6DB33F"/>',
+CALIDAD:(()=>{let p='';for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?11:13.2;p+=(i?'L':'M')+(r*Math.sin(a)).toFixed(2)+' '+(-r*Math.cos(a)).toFixed(2)}return '<path d="'+p+'Z" fill="#333F48" stroke="#333F48" stroke-width="1.5" stroke-linejoin="round"/><circle r="8.6" fill="#FFFFFF"/><circle r="6.6" fill="none" stroke="#333F48" stroke-width="1.6"/><path d="M-3.6 0.2 L-0.8 3 L4 -2.6" fill="none" stroke="#333F48" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>'})(),
+PRODUCTIVIDAD:'<path transform="scale(0.88)" d="M-2.4 -15h4.8v1.4h-0.4v6.2c0 2 4.6 3.6 4.6 8.4v13.4c0 1-0.8 1.6-1.6 1.6h-10c-0.8 0-1.6-0.6-1.6-1.6v-13.4c0-4.8 4.6-6.4 4.6-8.4v-6.2h-0.4z" fill="#333F48"/>'};
+function badge(lab,y,TEAL,F){const cy=y+18;return '<rect x="30" y="'+y+'" width="186" height="36" rx="9" fill="'+TEAL+'"/><circle cx="36" cy="'+cy+'" r="23" fill="'+TEAL+'"/><circle cx="36" cy="'+cy+'" r="19.5" fill="#FFFFFF"/><g transform="translate(36,'+cy+')">'+ICONS[lab]+'</g><text x="'+(62+(216-62)/2)+'" y="'+(y+24)+'" text-anchor="middle" font-family="'+F+'" font-size="'+(lab.length>10?14:16)+'" font-weight="bold" fill="#FFFFFF" letter-spacing="0.5">'+lab+'</text>'}
+function section(lab,txt,y,boxed){let s=badge(lab,y,TEAL,F);
+const ls=wrap(txt,28);const ty=y+56;if(boxed)s+='<rect x="14" y="'+(y+42)+'" width="200" height="'+(ls.length*17+14)+'" rx="5" fill="#FFFFFF" stroke="'+RED+'" stroke-width="1.5"/>';
+ls.forEach((t,i)=>{s+='<text x="'+(boxed?24:18)+'" y="'+(ty+i*17)+'" font-family="'+F+'" font-size="13" fill="#1F2D3D">'+esc(t)+'</text>'});return s}
+function build(){const t=['t0','t1','t2'].map(k=>$(k).value);
+let s='<svg id="sv" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="100%"><rect width="960" height="540" fill="#FFFFFF"/>';
+s+='<rect width="960" height="56" fill="'+TEAL+'"/><text x="480" y="37" text-anchor="middle" font-family="'+F+'" font-size="26" font-weight="bold" fill="#FFFFFF" letter-spacing="1">MANTENIMIENTO ZONA FRÍA</text>'+LOGOS;
+s+='<rect x="0" y="56" width="228" height="484" fill="#F2F4F5"/>';
+s+=section('SEGURIDAD',t[0],74,true)+section('CALIDAD',t[1],224,false)+section('PRODUCTIVIDAD',t[2],364,false);
+const cw=350,ch=146;L.forEach((l,i)=>{const col=i<3?0:1,row=i%3;s+=chart(l,244+col*(cw+12),66+row*(ch+8),cw,ch)});
+s+='<g font-family="'+F+'" font-size="11" fill="#404040"><rect x="560" y="526" width="10" height="10" fill="'+RED+'"/><text x="575" y="535">&gt; 60 min</text><rect x="640" y="526" width="10" height="10" fill="'+GRN+'"/><text x="655" y="535">≤ 60 min</text><line x1="720" x2="745" y1="531" y2="531" stroke="'+META+'" stroke-width="1.5" stroke-dasharray="5 3"/><text x="750" y="535">Meta 60 min</text></g></svg>';
+return {s,t}}
+function draw(){const r=build();$('slide').innerHTML=r.s;
+document.querySelectorAll('td input').forEach(i=>i.classList.toggle('hi',+i.value>60));
+const lim=new Date(today);lim.setDate(lim.getDate()-90);const lk=key(lim);
+L.forEach(l=>Object.keys(S[l]).forEach(k=>{if(k<lk)delete S[l][k]}));
+try{localStorage.setItem('zonaFriaHist',JSON.stringify({S,t:r.t,c:TEAL}))}catch(e){}}
+function toPng(cb){const str=build().s.replace('width="100%"','width="1920" height="1080"');const img=new Image();
+img.onload=()=>{const c=document.createElement('canvas');c.width=1920;c.height=1080;c.getContext('2d').drawImage(img,0,0,1920,1080);c.toBlob(cb)};
+img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(str)}
+$('dl').onclick=()=>toPng(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='zona_fria_'+key(today)+'.png';a.click();$('msg').textContent='Imagen descargada.'});
+$('cp').onclick=()=>toPng(async b=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);$('msg').textContent='Copiada. Pega con Ctrl+V en PowerPoint.'}catch(e){$('msg').textContent='Tu navegador no permitió copiar; usa Descargar PNG.'}});
+$('clr').onclick=()=>{if(!confirm('¿Borrar los minutos de los 6 días visibles?'))return;L.forEach(l=>K.forEach(k=>delete S[l][k]));document.querySelectorAll('td input').forEach(i=>i.value='');draw()};
+draw();
+const first=[...document.querySelectorAll('td input[data-i="5"]')].find(i=>i.value==='');if(first)first.focus();
+</script>
+</body>
+</html>
